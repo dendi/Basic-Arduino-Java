@@ -5,15 +5,23 @@
  */
 package arduino_coba;
 
+import arduino_coba.comport.serialConnect;
 import gnu.io.CommPortIdentifier;
-import gnu.io.SerialPort;
 import gnu.io.SerialPortEvent;
 import gnu.io.SerialPortEventListener;
+import java.awt.Color;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Enumeration;
-
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.plaf.nimbus.NimbusLookAndFeel;
 
 /**
  *
@@ -21,24 +29,19 @@ import java.util.Enumeration;
  */
 public class coba extends javax.swing.JFrame implements SerialPortEventListener {
 
+    serialConnect connect = new serialConnect();
     public static BufferedReader input;
     public static OutputStream output;
-    private static final String PORT_NAMES[] = {
-        "/dev/tty.usbserial-A9007UX1",
-        "/dev/ttyUSB0",
-        "COM15",};
-    public SerialPort serialPort;
     public static final int TIME_OUT = 2000;
     public static final int DATA_RATE = 9600;
+    String PORT_NAMES[] = {""};
 
     public static synchronized void writeData(String data) {
-        System.out.println("Sent: " + data);
-
+        System.out.println("Data Terkirim Ke Arduino: " + data);
         try {
             output.write(data.getBytes());
-
-        } catch (Exception e) {
-            System.out.println("could not write to port");
+        } catch (IOException e) {
+            System.out.println("Tidak Bisa Mengirim Data." + e.getMessage());
         }
     }
 
@@ -47,36 +50,9 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
      */
     public coba() {
         initComponents();
-        CommPortIdentifier portId = null;
-        Enumeration portEnum = CommPortIdentifier.getPortIdentifiers();
-        while (portEnum.hasMoreElements()) {
-            CommPortIdentifier currPortId = (CommPortIdentifier) portEnum.nextElement();
-            for (String portName : PORT_NAMES) {
-                if (currPortId.getName().equals(portName)) {
-                    portId = currPortId;
-                    break;
-                }
-            }
-        }
-        if (portId == null) {
-            System.out.println("Could not find COM port.");
-            return;
-            
-        }else{
-            System.out.println("Connected");
-        }
-        try {
-            serialPort = (SerialPort) portId.open(this.getClass().getName(), TIME_OUT);
-            serialPort.setSerialPortParams(DATA_RATE, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-            input = new BufferedReader(new InputStreamReader(serialPort.getInputStream()));
-            output = serialPort.getOutputStream();
-            char ch = 1;
-            output.write(ch);
-            serialPort.addEventListener((SerialPortEventListener) this);
-            serialPort.notifyOnDataAvailable(true);
-        } catch (Exception e) {
-            System.err.println(e.toString());
-        }
+        listPort();
+        ((JLabel) vportLists.getRenderer()).setHorizontalAlignment(SwingConstants.CENTER);
+
     }
 
     /**
@@ -90,34 +66,30 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
 
         buttonGroup1 = new javax.swing.ButtonGroup();
         jPanel1 = new javax.swing.JPanel();
-        vlampu1 = new javax.swing.JToggleButton();
-        vlampu2 = new javax.swing.JToggleButton();
         jPanel2 = new javax.swing.JPanel();
         jButton1 = new javax.swing.JButton();
         voff = new javax.swing.JCheckBox();
         von = new javax.swing.JCheckBox();
+        jPanel3 = new javax.swing.JPanel();
+        vlampu1 = new javax.swing.JToggleButton();
+        vlampu2 = new javax.swing.JToggleButton();
+        jPanel4 = new javax.swing.JPanel();
+        vportLists = new javax.swing.JComboBox();
+        jButton2 = new javax.swing.JButton();
+        jLabel1 = new javax.swing.JLabel();
+        vstatus = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setResizable(false);
 
+        jPanel1.setBackground(new java.awt.Color(0, 0, 0));
         jPanel1.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 0, 0), 1, true));
 
-        vlampu1.setText("Lampu 1");
-        vlampu1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                vlampu1ActionPerformed(evt);
-            }
-        });
-
-        vlampu2.setText("Lampu 2");
-        vlampu2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                vlampu2ActionPerformed(evt);
-            }
-        });
-
-        jPanel2.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 0, 0), 1, true));
+        jPanel2.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 255, 255), 1, true), "Blinking", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, null, new java.awt.Color(255, 255, 255)));
+        jPanel2.setOpaque(false);
 
         jButton1.setText("Ok");
+        jButton1.setBorderPainted(false);
         jButton1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButton1ActionPerformed(evt);
@@ -125,10 +97,17 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
         });
 
         buttonGroup1.add(voff);
+        voff.setFont(new java.awt.Font("Tahoma", 1, 36)); // NOI18N
+        voff.setForeground(new java.awt.Color(0, 255, 0));
+        voff.setSelected(true);
         voff.setText("Off");
+        voff.setOpaque(false);
 
         buttonGroup1.add(von);
+        von.setFont(new java.awt.Font("Tahoma", 1, 36)); // NOI18N
+        von.setForeground(new java.awt.Color(0, 255, 0));
         von.setText("On");
+        von.setOpaque(false);
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
@@ -136,10 +115,10 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(von)
-                    .addComponent(voff)
-                    .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(voff, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jPanel2Layout.setVerticalGroup(
@@ -149,9 +128,104 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
                 .addComponent(von)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(voff)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 20, Short.MAX_VALUE)
                 .addComponent(jButton1)
+                .addContainerGap())
+        );
+
+        jPanel3.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 255, 255), 1, true), "On/Off Mode", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, null, new java.awt.Color(255, 255, 255)));
+        jPanel3.setOpaque(false);
+
+        vlampu1.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
+        vlampu1.setText("Lampu 1 : OFF");
+        vlampu1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                vlampu1ActionPerformed(evt);
+            }
+        });
+
+        vlampu2.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
+        vlampu2.setText("Lampu 2 : OFF");
+        vlampu2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                vlampu2ActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
+        jPanel3.setLayout(jPanel3Layout);
+        jPanel3Layout.setHorizontalGroup(
+            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel3Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(vlampu1, javax.swing.GroupLayout.DEFAULT_SIZE, 268, Short.MAX_VALUE)
+                    .addComponent(vlampu2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        jPanel3Layout.setVerticalGroup(
+            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel3Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(vlampu1, javax.swing.GroupLayout.PREFERRED_SIZE, 65, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(vlampu2, javax.swing.GroupLayout.PREFERRED_SIZE, 64, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(21, Short.MAX_VALUE))
+        );
+
+        jPanel4.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 255, 255), 1, true), "On/Off Mode", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, null, new java.awt.Color(255, 255, 255)));
+        jPanel4.setOpaque(false);
+
+        vportLists.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Pilih Port" }));
+
+        jButton2.setText("Connect");
+        jButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton2ActionPerformed(evt);
+            }
+        });
+
+        jLabel1.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        jLabel1.setForeground(new java.awt.Color(0, 255, 0));
+        jLabel1.setText("COM Port Status :");
+
+        vstatus.setBackground(new java.awt.Color(255, 0, 0));
+        vstatus.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        vstatus.setForeground(new java.awt.Color(0, 255, 0));
+        vstatus.setText("Tidak Terkoneksi");
+        vstatus.setOpaque(true);
+
+        javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
+        jPanel4.setLayout(jPanel4Layout);
+        jPanel4Layout.setHorizontalGroup(
+            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel4Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel4Layout.createSequentialGroup()
+                        .addComponent(jLabel1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(vstatus)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addGroup(jPanel4Layout.createSequentialGroup()
+                        .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(vportLists, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(jPanel4Layout.createSequentialGroup()
+                                .addComponent(jButton2)
+                                .addGap(0, 0, Short.MAX_VALUE)))
+                        .addContainerGap())))
+        );
+        jPanel4Layout.setVerticalGroup(
+            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel4Layout.createSequentialGroup()
+                .addComponent(vportLists, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jButton2)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel1)
+                    .addComponent(vstatus))
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
@@ -160,62 +234,52 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(vlampu1, javax.swing.GroupLayout.DEFAULT_SIZE, 88, Short.MAX_VALUE)
-                    .addComponent(vlampu2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 105, Short.MAX_VALUE)
-                .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
+                .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(vlampu1, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(vlampu2, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap())
         );
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addContainerGap())
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addContainerGap())
-        );
+        getContentPane().add(jPanel1, java.awt.BorderLayout.CENTER);
 
         pack();
+        setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         Thread t = new Thread() {
+            @Override
             public void run() {
                 try {
                     Thread.sleep(1500);
-                    String value = "";
+                    String value;
                     if (von.isSelected()) {
                         value = "1";
+                        vlampu1.setText("Lampu 1 : Blinking");
+                        vlampu2.setText("Lampu 2 : ON");
                     } else {
                         value = "0";
                         vlampu1.setSelected(false);
+                        vlampu1.setText("Lampu 1 : OFF");
                         vlampu2.setSelected(false);
+                        vlampu2.setText("Lampu 2 : OFF");
                     }
                     writeData(value);
                 } catch (InterruptedException ie) {
-                    ie.printStackTrace();
                 }
             }
         };
@@ -225,14 +289,17 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
 
     private void vlampu1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vlampu1ActionPerformed
         Thread t = new Thread() {
+            @Override
             public void run() {
                 try {
                     Thread.sleep(1500);
-                    String value = "";
+                    String value;
                     if (vlampu1.isSelected()) {
                         value = "11";
+                        vlampu1.setText("Lampu 1 : ON");
                     } else {
                         value = "13";
+                        vlampu1.setText("Lampu 1 : OFF");
                     }
                     writeData(value);
                 } catch (InterruptedException ie) {
@@ -245,14 +312,17 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
 
     private void vlampu2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vlampu2ActionPerformed
         Thread t = new Thread() {
+            @Override
             public void run() {
                 try {
                     Thread.sleep(1500);
-                    String value = "";
+                    String value;
                     if (vlampu2.isSelected()) {
                         value = "12";
+                        vlampu2.setText("Lampu 2 : ON");
                     } else {
                         value = "02";
+                        vlampu2.setText("Lampu 1 : OFF");
                     }
                     writeData(value);
                 } catch (InterruptedException ie) {
@@ -262,6 +332,21 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
         };
         t.start();        // TODO add your handling code here:
     }//GEN-LAST:event_vlampu2ActionPerformed
+
+    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+        if (vportLists.getSelectedIndex() == 0) {
+
+        } else {
+            String strName = vportLists.getSelectedItem().toString();
+            String[] strArray = new String[]{strName};
+            connect.run(strArray);
+            connect.start();
+            vstatus.setText(" Terkoneksi : " + strName + " ");
+            vstatus.setBackground(Color.green);
+            vstatus.setForeground(Color.BLACK);
+        }
+
+    }//GEN-LAST:event_jButton2ActionPerformed
 
     /**
      * @param args the command line arguments
@@ -292,8 +377,14 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
+            @Override
             public void run() {
-                new coba().setVisible(true);
+                try {
+                    UIManager.setLookAndFeel(new NimbusLookAndFeel());
+                    new coba().setVisible(true);
+                } catch (UnsupportedLookAndFeelException ex) {
+                    Logger.getLogger(coba.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         });
     }
@@ -301,12 +392,18 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.ButtonGroup buttonGroup1;
     private javax.swing.JButton jButton1;
+    private javax.swing.JButton jButton2;
+    private javax.swing.JLabel jLabel1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
+    private javax.swing.JPanel jPanel3;
+    private javax.swing.JPanel jPanel4;
     private javax.swing.JToggleButton vlampu1;
     private javax.swing.JToggleButton vlampu2;
     private javax.swing.JCheckBox voff;
     private javax.swing.JCheckBox von;
+    private javax.swing.JComboBox vportLists;
+    private javax.swing.JLabel vstatus;
     // End of variables declaration//GEN-END:variables
 
     @Override
@@ -320,4 +417,16 @@ public class coba extends javax.swing.JFrame implements SerialPortEventListener 
             }
         }
     }
+
+    private void listPort() {
+        Enumeration portList = CommPortIdentifier.getPortIdentifiers();
+
+        while (portList.hasMoreElements()) {
+            CommPortIdentifier portId = (CommPortIdentifier) portList.nextElement();
+            if (portId.getPortType() == CommPortIdentifier.PORT_SERIAL) {
+                vportLists.addItem(portId.getName());
+            }
+        }
+    }
+
 }
